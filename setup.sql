@@ -2,7 +2,7 @@
 USE ROLE ACCOUNTADMIN;
 GRANT READ SESSION ON ACCOUNT TO ROLE ACCOUNTADMIN;
 
-create database snowflake_copy_cost_views;
+--create database snowflake_copy_cost_views;
 create schema snowflake_copy_cost_views.account_usage;
 create schema snowflake_copy_cost_views.policies;
 create schema snowflake_copy_cost_views.streamlit;
