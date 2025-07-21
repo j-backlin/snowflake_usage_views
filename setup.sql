@@ -28,9 +28,9 @@ CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.query_attr
 SELECT * FROM snowflake.account_usage.query_attribution_history;
 ALTER TABLE snowflake_copy_cost_views.account_usage.query_attribution_history ADD ROW ACCESS POLICY snowflake_copy_cost_views.policies.user_row_access_policy ON (user_name);
 
-grant usage on database snowflake_copy_cost_views to role identifier($role_access);
-grant usage on schema snowflake_copy_cost_views.streamlit to role identifier($role_access);
-grant select on view snowflake_copy_cost_views.account_usage.CORTEX_ANALYST_USAGE_HISTORY to role identifier($role_access);
-grant select on view snowflake_copy_cost_views.account_usage.query_history to role identifier($role_access);
-grant select on view snowflake_copy_cost_views.account_usage.cortex_functions_query_usage_history to role identifier($role_access);
-grant select on view snowflake_copy_cost_views.account_usage.query_attribution_history to role identifier($role_access);
+CREATE OR REPLACE STREAMLIT snowflake_copy_cost_views.streamlit.USER_USAGE_APP
+  FROM @snowflake_copy_cost_views.stages.GITHUB_REPO_SF_USAGE/branches/main/user_app/
+  MAIN_FILE = 'app.py'
+  QUERY_WAREHOUSE = ADHOC_XS
+  TITLE = 'User cost and usage'
+  COMMENT = 'Streamlit frontend for user based usage';
