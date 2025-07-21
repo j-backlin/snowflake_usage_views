@@ -36,9 +36,6 @@ Take note that the default install script will share the Streamlit app and secur
 -- Define what role should have access to the views and Streamlit app
 SET role_access='PUBLIC';
 
--- Define the base URL, change only if NOT using ORGANIZATION and ACCOUNT_NAME as URL
-SET base_url='https://app.snowflake.com/'||CURRENT_ORGANIZATION_NAME()||'/'||CURRENT_ACCOUNT_NAME();
-
 CREATE WAREHOUSE IF NOT EXISTS ADHOC_XS WAREHOUSE_SIZE='X-SMALL' INITIALLY_SUSPENDED=TRUE AUTO_SUSPEND=5 AUTO_RESUME=TRUE;
 create or replace database snowflake_copy_cost_views;
 create schema snowflake_copy_cost_views.stages;
@@ -76,8 +73,10 @@ AS (user_name VARCHAR) RETURNS BOOLEAN ->
 CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.CORTEX_ANALYST_USAGE_HISTORY AS
 SELECT * FROM snowflake.account_usage.CORTEX_ANALYST_USAGE_HISTORY;
 ALTER TABLE snowflake_copy_cost_views.account_usage.CORTEX_ANALYST_USAGE_HISTORY ADD ROW ACCESS POLICY snowflake_copy_cost_views.policies.user_row_access_policy ON (username);
+
+-- Below you can change the base URL used for Query profile links. Change only if NOT using ORGANIZATION and ACCOUNT_NAME as URL
 CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.query_history AS
-SELECT *,$base_url||'/#/compute/history/queries/'||QUERY_ID||'/profile' as query_id_url, FROM snowflake.account_usage.query_history;
+SELECT *,'https://app.snowflake.com/'||CURRENT_ORGANIZATION_NAME()||'/'||CURRENT_ACCOUNT_NAME()||'/#/compute/history/queries/'||QUERY_ID||'/profile' as query_id_url, FROM snowflake.account_usage.query_history;
 ALTER TABLE snowflake_copy_cost_views.account_usage.query_history ADD ROW ACCESS POLICY snowflake_copy_cost_views.policies.user_row_access_policy ON (user_name);
 CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.cortex_functions_query_usage_history AS (SELECT t1.*, t2.* exclude (query_id, warehouse_id) FROM snowflake_copy_cost_views.account_usage.query_history t1
     INNER JOIN snowflake.account_usage.cortex_functions_query_usage_history t2
