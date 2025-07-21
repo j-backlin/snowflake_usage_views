@@ -2,5 +2,6 @@ name: streamlit-app
 channels:
   - snowflake
 dependencies:
+  - streamlit=1.35.0
   - plotly
   - altair
