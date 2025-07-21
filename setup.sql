@@ -1,6 +1,6 @@
 GRANT READ SESSION ON ACCOUNT TO ROLE ACCOUNTADMIN;
 
-create schema snowflake_copy_cost_views.account_usage;
+--create schema snowflake_copy_cost_views.account_usage;
 create schema snowflake_copy_cost_views.policies;
 create schema snowflake_copy_cost_views.streamlit;
 
