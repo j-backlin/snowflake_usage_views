@@ -1,0 +1,6 @@
+name: streamlit-cost-dashboard-app
+channels:
+  - snowflake
+dependencies:
+  - streamlit
+  - plotly
