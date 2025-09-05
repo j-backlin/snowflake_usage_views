@@ -1,7 +1,9 @@
-name: streamlit-cost-dashboard-app
+name: streamlit-admin-app
 channels:
   - snowflake
 dependencies:
   - streamlit
   - plotly
   - altair
+  - pandas
+  - numpy
