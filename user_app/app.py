@@ -50,7 +50,7 @@ col1, col2 = st.sidebar.columns(2)
 with col1:
     start_date = st.date_input(
         "Start Date",
-        value=date.today() - timedelta(days=7),
+        value=date.today() - timedelta(days=5),
         key="start_date"
     )
 with col2:
@@ -71,12 +71,12 @@ if start_date and end_date and start_date <= end_date:
     try:
         overview_query = f"""
         SELECT 
-            COUNT(DISTINCT query_id) as total_queries,
+            COUNT(DISTINCT q.query_id) as total_queries,
             ROUND(SUM(COALESCE(CREDITS_ATTRIBUTED_COMPUTE, 0)), 3) as compute_credits,
             ROUND(SUM(COALESCE(CREDITS_USED_CLOUD_SERVICES, 0)), 3) as cs_credits,
             ROUND(AVG(total_elapsed_time)/1000, 2) as avg_execution_seconds
         FROM snowflake_copy_cost_views.account_usage.query_history q
-        LEFT JOIN snowflake_copy_cost_views.account_usage.query_attribution_history qa ON q.query_id = qa.query_id
+        INNER JOIN snowflake_copy_cost_views.account_usage.query_attribution_history qa ON q.query_id = qa.query_id
         WHERE q.start_time >= '{start_date}' AND q.start_time <= '{end_date}'
         """
         
