@@ -1,7 +1,9 @@
 # Snowflake Cost and Performance Analytics Dashboard
-A Streamlit-based dashboard for analyzing Snowflake cost and performance metrics per user. This application provides insights into warehouse usage, AI function costs, query performance, and resource utilization.
+A Streamlit-based dashboard for analyzing Snowflake cost and performance metrics per user. The Streamlit app provides insights into warehouse usage, AI function costs, query performance, and resource utilization. Also added a Streamlit app specifically for account admins to get an overview of the entire account.
 
-Take note that the default install script will share the Streamlit app and secure views to the Public role (but with row access policies filtering rows per user), enabling all users to track their own individual usage. If that is not desired; modify the install script prior to execution.
+Take note that the default install script will grant the user based Streamlit app and secure views to the Public role (but with row access policies filtering rows per user), enabling all users to track their own individual usage. If that is not desired; modify the SET role_access='PUBLIC'; line prior to execution.
+The account admin app is not shared to anyone but others with role accountadmin.
+
 ## :rocket: Features
 ### Dashboard Tabs
 1. **Warehouse Usage Analysis**
@@ -36,7 +38,8 @@ Take note that the default install script will share the Streamlit app and secur
 -- Define what role should have access to the views and Streamlit app
 SET role_access='PUBLIC';
 
-CREATE WAREHOUSE IF NOT EXISTS ADHOC_XS WAREHOUSE_SIZE='X-SMALL' INITIALLY_SUSPENDED=TRUE AUTO_SUSPEND=5 AUTO_RESUME=TRUE;
+CREATE WAREHOUSE IF NOT EXISTS ADHOC_M_G2 RESOURCE_CONSTRAINT = STANDARD_GEN_2
+  WAREHOUSE_SIZE = MEDIUM INITIALLY_SUSPENDED=TRUE AUTO_SUSPEND=5 AUTO_RESUME=TRUE;
 create or replace database snowflake_copy_cost_views;
 create schema snowflake_copy_cost_views.stages;
 
@@ -78,20 +81,30 @@ ALTER TABLE snowflake_copy_cost_views.account_usage.CORTEX_ANALYST_USAGE_HISTORY
 CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.query_history AS
 SELECT *,'https://app.snowflake.com/'||CURRENT_ORGANIZATION_NAME()||'/'||CURRENT_ACCOUNT_NAME()||'/#/compute/history/queries/'||QUERY_ID||'/profile' as query_id_url, FROM snowflake.account_usage.query_history;
 ALTER TABLE snowflake_copy_cost_views.account_usage.query_history ADD ROW ACCESS POLICY snowflake_copy_cost_views.policies.user_row_access_policy ON (user_name);
+
 CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.cortex_functions_query_usage_history AS (SELECT t1.*, t2.* exclude (query_id, warehouse_id) FROM snowflake_copy_cost_views.account_usage.query_history t1
     INNER JOIN snowflake.account_usage.cortex_functions_query_usage_history t2
     ON t1.query_id = t2.query_id);
+
 CREATE OR REPLACE SECURE VIEW snowflake_copy_cost_views.account_usage.query_attribution_history AS
 SELECT * FROM snowflake.account_usage.query_attribution_history;
 ALTER TABLE snowflake_copy_cost_views.account_usage.query_attribution_history ADD ROW ACCESS POLICY snowflake_copy_cost_views.policies.user_row_access_policy ON (user_name);
 
--- Create the Streamlit app
+-- Create the user Streamlit app
 CREATE OR REPLACE STREAMLIT snowflake_copy_cost_views.streamlit.USER_USAGE_APP
   FROM @snowflake_copy_cost_views.stages.GITHUB_REPO_SF_USAGE/branches/main/user_app/
   MAIN_FILE = 'app.py'
-  QUERY_WAREHOUSE = ADHOC_XS
+  QUERY_WAREHOUSE = ADHOC_M_G2
   TITLE = 'User cost and usage'
   COMMENT = 'Streamlit frontend for user based usage';
+
+-- Create the admin Streamlit app
+CREATE OR REPLACE STREAMLIT snowflake_copy_cost_views.streamlit.ADMIN_APP
+  FROM @snowflake_copy_cost_views.stages.GITHUB_REPO_SF_USAGE/branches/main/admin_app/
+  MAIN_FILE = 'app.py'
+  QUERY_WAREHOUSE = ADHOC_M_G2
+  TITLE = 'Admin cost and usage overview'
+  COMMENT = 'Streamlit frontend for admin app';
 
 -- Grant access to views and Streamlit to role define above
 grant usage on database snowflake_copy_cost_views to role identifier($role_access);
@@ -136,7 +149,7 @@ All data is sourced from Snowflake's `ACCOUNT_USAGE` schema:
 - **Error Tracking**: Failed queries and issues
 ## :shield: Security Notes
 - The secure views have row access policies attached to filter only relevant rows for the user who is executing the query.
-- The install script shares the secure views and streamlit app to the Public role by default. If that is not desired, copy the content of setup.sql and modify prior to execution.
+- The install script shares the secure views and streamlit app to the Public role by default. If that is not desired, modify the script prior to execution.
 ## :memo: Notes
 - The clickable query profile links in the tables are based on Organization + Account name: ```https://<orgname>-<account_name>.snowflakecomputing.com```
 -   If using either of the below modify the setup script to have functional links.
