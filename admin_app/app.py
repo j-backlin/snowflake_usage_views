@@ -75,40 +75,48 @@ if start_date and end_date and start_date <= end_date:
     # Get total costs for current period
     total_cost_query = f"""
         SELECT 
-            SUM(qa.CREDITS_ATTRIBUTED_COMPUTE + COALESCE(qa.CREDITS_USED_QUERY_ACCELERATION, 0)) as current_compute,
-            SUM(COALESCE(qh.CREDITS_USED_CLOUD_SERVICES, 0)) as current_cloud_services
-        FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_ATTRIBUTION_HISTORY qa
-        LEFT JOIN SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY qh ON qa.QUERY_ID = qh.QUERY_ID
-        WHERE qa.START_TIME >= '{start_date}' AND qa.START_TIME <= '{end_date}'
+            service_type,
+            SUM(credits_used) AS TOTAL_CREDITS,
+            SUM(credits_used_compute) AS CURRENT_COMPUTE,
+            SUM(credits_used_cloud_services) AS CURRENT_CLOUD_SERVICES
+        FROM SNOWFLAKE.ACCOUNT_USAGE.METERING_DAILY_HISTORY
+        WHERE usage_date >= '{start_date}' AND usage_date <= '{end_date}'
+        GROUP BY service_type
+        ORDER BY TOTAL_CREDITS DESC
         """
-    
-    # Get AI costs separately (may not be available in all accounts)
-    ai_cost_query = f"""
-    SELECT 
-        COALESCE(SUM(cf.TOKEN_CREDITS), 0) as current_ai
-    FROM SNOWFLAKE.ACCOUNT_USAGE.CORTEX_FUNCTIONS_QUERY_USAGE_HISTORY cf
-    INNER JOIN SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY qh ON cf.QUERY_ID = qh.QUERY_ID
-    WHERE qh.START_TIME >= '{start_date}' AND qh.START_TIME <= '{end_date}'
-    """
     
     cost_summary = session.sql(total_cost_query).to_pandas()
     
-    # Try to get AI costs, handle gracefully if not available
-    ai_current = 0
-    try:
-        ai_cost_result = session.sql(ai_cost_query).to_pandas()
-        if not ai_cost_result.empty:
-            ai_current = ai_cost_result['CURRENT_AI'].iloc[0] or 0
-    except Exception as e:
-        st.sidebar.warning("⚠️ AI cost tracking not available in this account")
-        ai_current = 0
+    # Get AI costs from the same dataframe by filtering for AI_SERVICES
+    ai_services_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'AI_SERVICES']
+    ai_current = ai_services_data['TOTAL_CREDITS'].sum() if not ai_services_data.empty else 0
+    
+    # Get Warehouse costs from the same dataframe
+    warehouse_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'WAREHOUSE_METERING']
+    warehouse_current = warehouse_data['TOTAL_CREDITS'].sum() if not warehouse_data.empty else 0
+    
+    # Get Data Quality Monitoring costs from the same dataframe
+    dq_monitoring_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'DATA_QUALITY_MONITORING']
+    dq_current = dq_monitoring_data['TOTAL_CREDITS'].sum() if not dq_monitoring_data.empty else 0
+    
+    # Get Serverless Task costs
+    serverless_task_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'SERVERLESS_TASK']
+    serverless_task_current = serverless_task_data['TOTAL_CREDITS'].sum() if not serverless_task_data.empty else 0
+    
+    # Get Copy Files costs
+    copy_files_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'COPY_FILES']
+    copy_files_current = copy_files_data['TOTAL_CREDITS'].sum() if not copy_files_data.empty else 0
+    
+    # Get Auto Clustering costs
+    auto_clustering_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'AUTO_CLUSTERING']
+    auto_clustering_current = auto_clustering_data['TOTAL_CREDITS'].sum() if not auto_clustering_data.empty else 0
+    
+    # Get Telemetry Data Ingest costs
+    telemetry_data_ingest_data = cost_summary[cost_summary['SERVICE_TYPE'] == 'TELEMETRY_DATA_INGEST']
+    telemetry_data_ingest_current = telemetry_data_ingest_data['TOTAL_CREDITS'].sum() if not telemetry_data_ingest_data.empty else 0
     
     if not cost_summary.empty:
-        current_total = (
-            cost_summary['CURRENT_COMPUTE'].iloc[0] + 
-            cost_summary['CURRENT_CLOUD_SERVICES'].iloc[0] + 
-            ai_current
-        )
+        current_total = cost_summary['TOTAL_CREDITS'].sum()
         
         # Display key metrics
         col1, col2, col3, col4 = st.columns(4)
@@ -121,20 +129,47 @@ if start_date and end_date and start_date <= end_date:
         
         with col2:
             st.metric(
-                "Compute Credits",
-                f"{cost_summary['CURRENT_COMPUTE'].iloc[0]:,.1f}"
+                "Warehouse Credits",
+                f"{warehouse_current:,.1f}"
             )
         
         with col3:
             st.metric(
-                "Cloud Services Credits", 
-                f"{cost_summary['CURRENT_CLOUD_SERVICES'].iloc[0]:,.1f}"
+                "Data Quality Monitoring Credits", 
+                f"{dq_current:,.1f}"
             )
         
         with col4:
             st.metric(
                 "AI Credits",
                 f"{ai_current:,.1f}"
+            )
+        
+        # Second row of metrics for additional service types
+        col5, col6, col7, col8 = st.columns(4)
+        
+        with col5:
+            st.metric(
+                "Serverless Task Credits",
+                f"{serverless_task_current:,.1f}"
+            )
+        
+        with col6:
+            st.metric(
+                "Copy Files Credits",
+                f"{copy_files_current:,.1f}"
+            )
+        
+        with col7:
+            st.metric(
+                "Auto Clustering Credits",
+                f"{auto_clustering_current:,.1f}"
+            )
+        
+        with col8:
+            st.metric(
+                "Telemetry Data Ingest Credits",
+                f"{telemetry_data_ingest_current:,.1f}"
             )
 
     # Navigation section
